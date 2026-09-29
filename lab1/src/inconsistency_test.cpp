@@ -10,6 +10,7 @@
 
 #include "metrics/metrics.hpp"
 #include "metrics/metrics_baseline.hpp"
+#include "metrics/metrics_db.hpp"
 #include "metrics/metrics_naive.hpp"
 #include "metrics/metrics_sharded.hpp"
 #include "metrics/metrics_stub.hpp"
@@ -91,11 +92,10 @@ int main()
     constexpr std::size_t snapshot_calls = 10000;
 
     std::shared_ptr<MetricsCollector> collectors[] = {
-        std::make_shared<MetricsCollectorsBaseline>(),
-        std::make_shared<MetricsCollectorsStub>(),
-        std::make_shared<MetricsCollectorsNaive>(),
         std::make_shared<MetricsCollectorsSharded>(),
-        std::make_shared<MetricsCollectorsThreadLocal>()
+        std::make_shared<MetricsCollectorsThreadLocal>(),
+        std::make_shared<MetricsCollectorsDB>(),
+        std::make_shared<MetricsCollectorsDB>(false)
     };
 
     for (auto& collector : collectors) {

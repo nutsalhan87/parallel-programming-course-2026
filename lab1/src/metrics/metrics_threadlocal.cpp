@@ -5,6 +5,11 @@
 #include <cstdint>
 #include <mutex>
 
+uint64_t MetricsCollectorsThreadLocal::next_collector_id() {
+    static std::atomic_uint64_t counter = 1;
+    return counter.fetch_add(1);
+}
+
 MetricsCollectorsThreadLocal::ThreadLocalCollectorState* MetricsCollectorsThreadLocal::get_my_state() {
         struct TLSSlot { uint64_t id = 0; ThreadLocalCollectorState* state = nullptr; };
         static thread_local TLSSlot slot;

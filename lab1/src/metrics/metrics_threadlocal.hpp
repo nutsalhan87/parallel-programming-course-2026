@@ -7,11 +7,6 @@
 #include <mutex>
 #include <vector>
 
-inline uint64_t next_collector_id() {
-    static std::atomic_uint64_t counter = 1;
-    return counter.fetch_add(1);
-}
-
 class MetricsCollectorsThreadLocal final : public MetricsCollector {
 private:
     struct ThreadLocalCollectorState {
@@ -26,6 +21,7 @@ private:
     std::mutex _list_lock;
     std::vector<std::unique_ptr<ThreadLocalCollectorState>> _states;
 
+    static std::uint64_t next_collector_id();
     ThreadLocalCollectorState* get_my_state();
 
 public:
