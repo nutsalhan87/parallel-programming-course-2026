@@ -1,5 +1,6 @@
 #include "measurer.hpp"
 #include "metrics/metrics.hpp"
+#include "metrics/metrics_baseline.hpp"
 #include "metrics/metrics_naive.hpp"
 #include "metrics/metrics_sharded.hpp"
 #include "metrics/metrics_stub.hpp"
@@ -19,6 +20,7 @@ int main()
     std::size_t threads[] = { 1, 2, 4, 6, 12 };
 
     std::shared_ptr<MetricsCollector> collectors[] = {
+        std::make_shared<MetricsCollectorsBaseline>(),
         std::make_shared<MetricsCollectorsStub>(),
         std::make_shared<MetricsCollectorsNaive>(),
         std::make_shared<MetricsCollectorsSharded>()
