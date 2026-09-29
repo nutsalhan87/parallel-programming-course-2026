@@ -35,6 +35,16 @@ int main()
         }
         draw_histogram(std::cout, threads, op_secs, collector->name(), "Threads",
             "Op/Sec");
+        
+        std::cout << "| threads | ";
+        for (std::size_t i = 0; i < std::size(threads); ++i) {
+            std::cout << threads[i] << " | ";
+        }
+        std::cout << std::endl << "| op/sec | ";
+        for (std::size_t i = 0; i < std::size(op_secs); ++i) {
+            std::cout << op_secs[i] << " | ";
+        }
+        std::cout << std::endl;
     }
 
     return 0;

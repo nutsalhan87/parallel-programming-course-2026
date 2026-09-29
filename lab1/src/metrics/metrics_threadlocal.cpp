@@ -5,6 +5,22 @@
 #include <cstdint>
 #include <mutex>
 
+MetricsCollectorsThreadLocal::ThreadLocalCollectorState* MetricsCollectorsThreadLocal::get_my_state() {
+        struct TLSSlot { uint64_t id = 0; ThreadLocalCollectorState* state = nullptr; };
+        static thread_local TLSSlot slot;
+        if (slot.id != _id) {
+            auto s = std::make_unique<ThreadLocalCollectorState>();
+            ThreadLocalCollectorState* raw = s.get();
+            {
+                auto g = std::lock_guard<std::mutex>(_list_lock);
+                _states.push_back(std::move(s));
+            }
+            slot.id = _id;
+            slot.state = raw;
+        }
+        return slot.state;
+    }
+
 void MetricsCollectorsThreadLocal::record(uint64_t value)
 {
     ThreadLocalCollectorState* state = get_my_state();
