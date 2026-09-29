@@ -29,5 +29,5 @@ Snapshot MetricsCollectorsBaseline::snapshot()
 
 const std::string MetricsCollectorsBaseline::name()
 {
-    return "Naive Metrics Collector";
+    return "Baseline Metrics Collector";
 }

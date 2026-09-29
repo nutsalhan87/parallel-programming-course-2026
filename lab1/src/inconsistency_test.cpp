@@ -13,6 +13,7 @@
 #include "metrics/metrics_naive.hpp"
 #include "metrics/metrics_sharded.hpp"
 #include "metrics/metrics_stub.hpp"
+#include "metrics/metrics_threadlocal.hpp"
 #include "zipf.hpp"
 
 struct InconsistencyTestResult {
@@ -93,7 +94,8 @@ int main()
         std::make_shared<MetricsCollectorsBaseline>(),
         std::make_shared<MetricsCollectorsStub>(),
         std::make_shared<MetricsCollectorsNaive>(),
-        std::make_shared<MetricsCollectorsSharded>()
+        std::make_shared<MetricsCollectorsSharded>(),
+        std::make_shared<MetricsCollectorsThreadLocal>()
     };
 
     for (auto& collector : collectors) {
