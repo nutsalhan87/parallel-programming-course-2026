@@ -43,9 +43,9 @@ int main()
         for (std::size_t i = 0; i < std::size(threads); ++i) {
             std::cout << threads[i] << " | ";
         }
-        std::cout << std::endl << "| op/sec | ";
+        std::cout << std::endl << "| mil op/sec | ";
         for (std::size_t i = 0; i < std::size(op_secs); ++i) {
-            std::cout << op_secs[i] << " | ";
+            std::cout << op_secs[i] / 1000000 << " | ";
         }
         std::cout << std::endl;
     }
