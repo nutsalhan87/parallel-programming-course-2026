@@ -1,0 +1,38 @@
+#include "metrics_naive.hpp"
+#include "metrics.hpp"
+#include <array>
+#include <cstdint>
+#include <mutex>
+
+void MetricsCollectorsNaive::record(uint64_t value)
+{
+    auto lock = std::lock_guard<std::mutex>(this->mutex);
+
+    auto idx = std::max(std::min(value / BUCKET_STEP, BUCKETS - 1ul), 0ul);
+    this->buckets[idx]++;
+    this->count++;
+    this->sum += value;
+    this->min = std::min(this->min, value);
+    this->max = std::max(this->max, value);
+}
+
+Snapshot MetricsCollectorsNaive::snapshot()
+{
+    auto lock = std::lock_guard<std::mutex>(this->mutex);
+
+    auto buckets = this->buckets;
+    uint64_t count = this->count;
+    uint64_t sum = this->sum;
+    uint64_t min = this->min;
+    uint64_t max = this->max;
+
+    uint64_t p50 = cum_search<50>(buckets, count);
+    uint64_t p99 = cum_search<99>(buckets, count);
+
+    return { buckets, count, sum, min, max, p50, p99 };
+}
+
+const std::string MetricsCollectorsNaive::name()
+{
+    return "Naive Metrics Collector";
+}
