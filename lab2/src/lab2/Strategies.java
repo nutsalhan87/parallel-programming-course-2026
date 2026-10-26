@@ -1,6 +1,7 @@
 package lab2;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /* Стратегии выбора следующего потока.
  * FirstAlive — этап 1, Replay — этап 2, RandomPick — этап 3, Dfs — этап 4 (ограничение bound — этап 5).
@@ -11,7 +12,11 @@ public final class Strategies {
     /** Всегда первый поток из enabled. */
     public static final class FirstAlive implements Strategy {
         public int pick(List<Integer> enabled, int last) {
-            throw new UnsupportedOperationException("TODO этап 1: FirstAlive.pick");
+            try {
+                return enabled.getFirst();
+            } catch (NoSuchElementException _) {
+                return -1;
+            } 
         }
     }
 
