@@ -1,5 +1,6 @@
 package lab2;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
@@ -60,18 +61,60 @@ public final class Strategies {
     /** Stateless DFS по дереву выборов: каждый прогон с нуля, повторяет префикс прошлого и берёт следующий вариант.
      *  bound — максимум вытеснений (этап 5); для dfs runner передаёт Integer.MAX_VALUE. */
     public static final class Dfs implements Strategy {
-        public Dfs(int bound) { }
+        private final int bound;
+        private final List<Choice> path = new ArrayList<>();
+        private int cur = 0;
+        private int preemptions = 0;
+
+        public Dfs(int bound) {
+            this.bound = bound;
+        }
 
         /** Подготовиться к новому прогону (позиция в пути, счётчик вытеснений). */
-        public void beginRun() { }
+        public void beginRun() {
+            cur = 0;
+            preemptions = 0;
+        }
 
         public int pick(List<Integer> enabled, int last) {
-            throw new UnsupportedOperationException("TODO этап 4: Dfs.pick");
+            boolean lastEnabled = enabled.contains(last);
+            if (cur == path.size()) {
+                var options = new ArrayList<Integer>();
+                for (int idx : enabled) {
+                    if (!lastEnabled || idx == last || preemptions < bound) {
+                        options.add(idx);
+                    }
+                }
+                path.add(new Choice(options));
+            }
+
+            var choice = path.get(cur++);
+            int idx = choice.options.get(choice.cur);
+            if (lastEnabled && idx != last) {
+                preemptions++;
+            }
+            return idx;
         }
 
         /** Выбрать следующий путь; false — дерево обойдено. */
         public boolean endRun() {
-            throw new UnsupportedOperationException("TODO этап 4: Dfs.endRun");
+            while (!path.isEmpty()) {
+                var choice = path.getLast();
+                if (++choice.cur < choice.options.size()) {
+                    return true;
+                }
+                path.removeLast();
+            }
+            return false;
+        }
+
+        private static class Choice {
+            final List<Integer> options;
+            int cur = 0;
+
+            Choice(List<Integer> options) {
+                this.options = options;
+            }
         }
     }
 }
