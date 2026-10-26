@@ -22,13 +22,23 @@ public final class Strategies {
 
     /** Проигрывает трассу: на i-м решении выбирает поток trace[i] ('A' -> 0, 'B' -> 1). */
     public static final class Replay implements Strategy {
-        public Replay(String trace) { }
+        private final String trace;
+        private int cur = 0;
+        
+        public Replay(String trace) {
+            this.trace = trace;
+        }
 
         /** Сбросить позицию в трассе перед прогоном. */
-        public void beginRun() { }
+        public void beginRun() { cur = 0; }
 
         public int pick(List<Integer> enabled, int last) {
-            throw new UnsupportedOperationException("TODO этап 2: Replay.pick");
+            var name = trace.charAt(cur++);
+            var idx = name - 'A';
+            if (!enabled.contains(idx)) {
+                throw new RuntimeException(name + " is not enabled");
+            }
+            return idx;
         }
     }
 

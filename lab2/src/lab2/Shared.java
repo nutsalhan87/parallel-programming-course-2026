@@ -1,5 +1,6 @@
 package lab2;
 
+import lab2.SchedLock.SchedDeadLockException;
 import lab2.Scheduler.Task;
 
 /* Этап 1: общая переменная. Перед каждым get/set — точка переключения (пауза планировщика),
@@ -14,9 +15,12 @@ public final class Shared<T> {
     /** Чтение с паузой перед ним. */
     public T get() {
         if (Thread.currentThread() instanceof Task currentTask) {
-            Scheduler scheduler = currentTask.currentScheduler;
+            Scheduler scheduler = currentTask.scheduler;
             scheduler.readyForTask.release();
             currentTask.wake.acquireUninterruptibly();
+            if (scheduler.deadlocked) {
+                throw new SchedDeadLockException();
+            }
             if (scheduler.logging) {
                 scheduler.log.add(currentTask.getName() + " " + name + " -> " + value);
             }
@@ -27,9 +31,12 @@ public final class Shared<T> {
     /** Запись с паузой перед ней. */
     public void set(T v) {
         if (Thread.currentThread() instanceof Task currentTask) {
-            Scheduler scheduler = currentTask.currentScheduler;
+            Scheduler scheduler = currentTask.scheduler;
             scheduler.readyForTask.release();
             currentTask.wake.acquireUninterruptibly();
+            if (scheduler.deadlocked) {
+                throw new SchedDeadLockException();
+            }
             if (scheduler.logging) {
                 scheduler.log.add(currentTask.getName() + " " + name + " = " + v);
             }
