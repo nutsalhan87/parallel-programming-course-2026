@@ -1,0 +1,36 @@
+#!/bin/bash
+
+cd "$(dirname "$0")"
+
+case "$1" in
+    "build")
+        javac -d out src/lab2/*.java
+        ;;
+    
+    "run")
+        shift
+        java -cp out lab2.Main "$@"
+        ;;
+
+    "stress")
+        shift
+        java -cp out lab2.Stress "$@"
+        ;;
+
+    "ministress")
+        shift
+        java -cp out lab2.MiniStress "$@"
+        ;;
+
+    *)
+        echo "Usage: ./lab2 <cmd>
+cmd:
+    build
+    run <target> <strategy> [arg] [log]
+    stress <runs> [none|yield|sleep] [v1|v2]
+    ministress <mode> <rounds> <cells>
+        mode: plain | acqrel | volatile | naive" 
+        exit 1
+    ;;
+
+esac
