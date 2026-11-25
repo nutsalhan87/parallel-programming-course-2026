@@ -52,12 +52,19 @@ public final class Schedule {
 
     private int at(int flightId) { return recordsStart + flightId * RECORD; }
 
+    /** Вылет в минутах */
     public int dep(int flightId) { return b.getInt(at(flightId)); }
+    /** Прилет в минутах */
     public int arr(int flightId) { return b.getInt(at(flightId) + 4); }
+    /** Откуда (id аэропорта) */
     public int from(int flightId) { return b.getShort(at(flightId) + 8) & 0xFFFF; }
+    /** Куда (id аэропорта) */
     public int to(int flightId) { return b.getShort(at(flightId) + 10) & 0xFFFF; }
+    /** Id авиакомпании */
     public int airline(int flightId) { return b.getShort(at(flightId) + 12) & 0xFFFF; }
+    /** Номер рейса */
     public int flightNo(int flightId) { return b.getShort(at(flightId) + 14) & 0xFFFF; }
+    /** Стоимость полета, рубли */
     public int price(int flightId) { return b.getInt(at(flightId) + 16); }
 
     public String airportCode(int id) { return airports[id]; }

@@ -10,7 +10,7 @@ public class Stage1Check {
     public static void main(String[] args) throws Exception {
         if (args.length < 1) { System.err.println("usage: java Stage1Check.java <your-output.txt> [expected-stage1.txt]"); System.exit(2); }
         Path expectedFile = args.length > 1 ? Path.of(args[1])
-                : Path.of(Stage1Check.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent().resolve(".././data/expected-stage1.txt").normalize();
+                : Path.of(Stage1Check.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent().resolve("./data/expected-stage1.txt").normalize();
         if (!Files.exists(expectedFile)) expectedFile = Path.of("expected-stage1.txt");
         Map<String, List<String>> want = parse(Files.readAllLines(expectedFile));
         Map<String, List<String>> got = parse(Files.readAllLines(Path.of(args[0])));
