@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,11 +20,19 @@ public class Main {
     private static Schedule schedule;
 
     private static Map<Integer, SortedSet<Flight>> airportToFlights = new HashMap<>();
+    private static Map<FromTo, SortedSet<Flight>> fromToFlights = new HashMap<>();
 
-    private static Set<Flight> flightsAt(int airportId, int depLeftDound, int depRightBound) {
-        var startDummy = new Flight(Integer.MIN_VALUE, null, null, null, depLeftDound, 0, 0);
-        var endDummy = new Flight(Integer.MIN_VALUE, null, null, null, depRightBound, 0, 0);
-        return airportToFlights.get(airportId).subSet(startDummy, endDummy);
+    private static record FromTo(Integer from, Integer to) {}
+    private static record Flight(int id, int airlineId, int fromId, int toId, int dep, int arr, int price) {
+        public Flight(int flightId, Schedule schedule) {
+            this(flightId, 
+                schedule.airline(flightId), 
+                schedule.from(flightId), 
+                schedule.to(flightId), 
+                schedule.dep(flightId), 
+                schedule.arr(flightId), 
+                schedule.price(flightId));
+        }
     }
 
     private static Optional<List<String>> argParse(String key, int n, String[] args) {
@@ -61,14 +68,25 @@ public class Main {
             System.exit(1);
         }
 
+        var start = Instant.now();
         for (int flightId = 0; flightId < schedule.nFlights; ++flightId) {
-            var flight = schedule.flight(flightId);
+            var flight = new Flight(flightId, schedule);
+
             var flights = airportToFlights.computeIfAbsent(
-                schedule.airportId(flight.from()), 
-                f -> new TreeSet<Flight>(Comparator.comparingInt(Flight::dep).thenComparing(Flight::id))
+                flight.fromId(), 
+                f -> new TreeSet<>(Comparator.comparingInt(Flight::dep).thenComparing(Flight::id))
             );
             flights.add(flight);
+            
+            var fromTo = new FromTo(flight.fromId, flight.toId);
+            var fromToFlightsSet = fromToFlights.computeIfAbsent(
+                fromTo,
+                f -> new TreeSet<>(Comparator.comparingInt(Flight::dep).thenComparing(Flight::id))
+            );
+            fromToFlightsSet.add(flight);
         }
+        var end = Instant.now();
+        System.out.println("Index was built for " + (end.toEpochMilli() - start.toEpochMilli()) + " ms");
 
         var queries = argParse("--queries", 1, args)
             .map(List::getFirst)
@@ -94,13 +112,11 @@ public class Main {
                 var idx = cnt.getAndIncrement();
                 System.out.printf("Q%d %s %s %d count=%d ms=%d\n", idx, top10.from, top10.to, top10.day, top10.count, top10.ms);
                 top10.top10.forEach(route -> {
-                    var sum = route.stream().mapToInt(Flight::basePrice).sum();
-                    var time = route.getLast().arr() - route.getFirst().dep();
-                    var path = route.stream()
+                    var path = route.route.stream()
                         .map(Flight::id)
                         .map(v -> v.toString())
                         .collect(Collectors.joining("-"));
-                    System.out.printf("  %d %d %s\n", sum, time, path);
+                    System.out.printf("  %d %d %s\n", route.sum, route.speed, path);
                 });
             });
         } catch (IOException e) {
@@ -113,19 +129,19 @@ public class Main {
         Top10Result top10(String from, String to, int day);
         
         public static final class Baseline implements Top10 {
-            private void top10Inner(List<Flight> route, int from, int to, int day, SortedSet<List<Flight>> boundedTop10, AtomicInteger flightCounter) {
-                if (route.size() >= 3) {
-                    var toCode = schedule.airportId(route.getLast().to()); 
-                    if (toCode == to) {
-                        boundedTop10.add(new ArrayList<>(route));
-                        flightCounter.incrementAndGet();
+            private void top10Inner(List<Flight> route, int from, int to, int day, SortedSet<Route> boundedTop10, AtomicInteger flightCounter) {
+                if (!route.isEmpty() && route.getLast().toId() == to) {
+                    var sum = route.stream().mapToInt(Flight::price).sum();
+                    var speed = route.getLast().arr() - route.getFirst().dep();
+                    var routeObj = new Route(route, sum, speed);
+                    if (boundedTop10.isEmpty() || boundedTop10.comparator().compare(boundedTop10.last(), routeObj) > 0) {
+                        boundedTop10.add(routeObj);
                     }
+                    flightCounter.incrementAndGet();
                     return;
                 }
 
-                if (!route.isEmpty() && schedule.airportId(route.getLast().to()) == to) {
-                    boundedTop10.add(new ArrayList<>(route));
-                    flightCounter.incrementAndGet();
+                if (route.size() >= 3) {
                     return;
                 }
 
@@ -137,11 +153,27 @@ public class Main {
                     depLeftBound = route.getLast().arr() + 60;
                     depRightBound = route.getLast().arr() + 361;
                 }
+                var startDummy = new Flight(Integer.MIN_VALUE, 0, 0, 0, depLeftBound, 0, 0);
+                var endDummy = new Flight(Integer.MIN_VALUE, 0, 0, 0, depRightBound, 0, 0);
+
+                var airportId = route.isEmpty() ? from : route.getLast().toId();
+                SortedSet<Flight> flights;
+                if (route.size() == 2) {
+                    var fromTo = new FromTo(airportId, to);
+                    flights = fromToFlights.get(fromTo);
+                } else {
+                    flights = airportToFlights.get(airportId);
+                }
+                if (flights == null || flights.isEmpty()) {
+                    return;
+                }
                 
-                var airportId = route.isEmpty() ? from : schedule.airportId(route.getLast().to());
-                for (var flight : flightsAt(airportId, depLeftBound, depRightBound)) {
-                    if (route.stream().anyMatch(flightInRoute -> flightInRoute.from() == flight.to())) {
-                        continue;
+                outer:
+                for (var flight : flights.subSet(startDummy, endDummy)) {
+                    for (var flightInRoute : route) {
+                        if (flightInRoute.fromId == flight.toId) {
+                            continue outer;
+                        }
                     }
                     route.addLast(flight);
                     top10Inner(route, from, to, day, boundedTop10, flightCounter);
@@ -150,7 +182,7 @@ public class Main {
             } 
 
             public Top10Result top10(String from, String to, int day) {
-                SortedSet<List<Flight>> boundedTop10 = boundedTop10Set();
+                SortedSet<Route> boundedTop10 = boundedTop10Set();
                 var fromId = schedule.airportId(from);
                 var toId = schedule.airportId(to);
                 var flightCounter = new AtomicInteger(0);
@@ -167,38 +199,34 @@ public class Main {
             }
         }
 
-        public static record Top10Result(SortedSet<List<Flight>> top10, String from, String to, int day, long count, long ms) {}
+        public static record Top10Result(SortedSet<Route> top10, String from, String to, int day, long count, long ms) {}
 
-        private static SortedSet<List<Flight>> boundedTop10Set() {
+        private static SortedSet<Route> boundedTop10Set() {
             return new TreeSet<>((r1, r2) -> {
-                var sum1 = r1.stream().mapToInt(Flight::basePrice).sum();
-                var sum2 = r2.stream().mapToInt(Flight::basePrice).sum();
-                if (sum1 != sum2) {
-                    return sum1 - sum2;
+                if (r1.sum != r2.sum) {
+                    return r1.sum - r2.sum;
                 }
 
-                var speed1 = r1.getLast().arr() - r1.getFirst().dep();
-                var speed2 = r2.getLast().arr() - r2.getFirst().dep();
-                if (speed1 != speed2) {
-                    return speed1 - speed2;
+                if (r1.speed != r2.speed) {
+                    return r1.speed - r2.speed;
                 }
 
-                for (int i = 0; i < Math.min(r1.size(), r2.size()); ++i) {
-                    var id1 = r1.get(i).id();
-                    var id2 = r2.get(i).id();
+                for (int i = 0; i < Math.min(r1.route.size(), r2.route.size()); ++i) {
+                    var id1 = r1.route.get(i).id();
+                    var id2 = r2.route.get(i).id();
                     if (id1 != id2) {
                         return id1 - id2;
                     }
                 }
 
-                return r1.size() - r2.size();
+                return r1.route.size() - r2.route.size();
             }) {
                 @Override
-                public boolean add(List<Flight> flights) {
-                    super.add(flights);
+                public boolean add(Route route) {
+                    super.add(route);
                     if (this.size() > 10) {
                         var removed = this.removeLast();
-                        if (removed == flights) {
+                        if (removed == route) {
                             return false;
                         }
                     }
@@ -206,7 +234,7 @@ public class Main {
                 };
             };
         }
+
+        public static record Route(List<Flight> route, int sum, int speed) {}
     }
-
-
 }
