@@ -134,33 +134,36 @@ public class Main {
         Top10Result top10(String from, String to, int day);
         
         public static final class Baseline implements Top10 {
-            private static record Context(
-                List<Flight> flights,
-                int from,
-                int to,
-                int day,
-                SortedSet<Route> boundedTop10,
-                AtomicInteger flightCounter,
-                BitSet visited,
-                AtomicInteger sumAcc
-            ) {
-                public static Context from(int from, int to, int day) {
-                    return new Context(
-                        new ArrayList<>(3),
-                        from, to, day, 
-                        boundedTop10Set(), 
-                        new AtomicInteger(0), 
-                        new BitSet(schedule.nAirports), 
-                        new AtomicInteger(0)
-                    );
+            private static class Context {
+                List<Flight> flights;
+                int from;
+                int to;
+                int day;
+                SortedSet<Route> boundedTop10;
+                AtomicInteger flightCounter;
+                BitSet visited;
+                AtomicInteger sumAcc;
+                Route worst;
+
+                public Context(int from, int to, int day) {
+                    this.flights = new ArrayList<>(3);
+                    this.from = from; 
+                    this.to = to;
+                    this.day = day;
+                    this.boundedTop10 = boundedTop10Set(); 
+                    this.flightCounter = new AtomicInteger(0);
+                    this.visited = new BitSet(schedule.nAirports);
+                    this.sumAcc = new AtomicInteger(0);
+                    this.worst = null;
                 }
             }
 
             private void top10Inner(Context ctx) {
                 if (!ctx.flights.isEmpty() && ctx.flights.getLast().toId() == ctx.to) {
-                    var route = Route.from(ctx.flights, ctx.sumAcc.get());
-                    if (ctx.boundedTop10.size() < 10 || ctx.boundedTop10.comparator().compare(ctx.boundedTop10.last(), route) > 0) {
+                    if (ctx.boundedTop10.size() < 10 || (ctx.worst != null && ctx.worst.compareTo(ctx.flights, ctx.sumAcc.get()) > 0)) {
+                        var route = Route.from(ctx.flights, ctx.sumAcc.get());
                         ctx.boundedTop10.add(route);
+                        ctx.worst = ctx.boundedTop10.last();
                     }
                     ctx.flightCounter.incrementAndGet();
                     return;
@@ -211,7 +214,7 @@ public class Main {
             public Top10Result top10(String from, String to, int day) {
                 var fromId = schedule.airportId(from);
                 var toId = schedule.airportId(to);
-                var ctx = Context.from(fromId, toId, day);
+                var ctx = new Context(fromId, toId, day);
                 var start = Instant.now();
                 top10Inner(ctx);
                 var end = Instant.now();
@@ -229,18 +232,7 @@ public class Main {
         public static record Top10Result(List<Flight[]> top10, String from, String to, int day, long count, long ms) {}
 
         private static SortedSet<Route> boundedTop10Set() {
-            return new TreeSet<>((r1, r2) -> {
-                if (r1.sum != r2.sum) {
-                    return r1.sum - r2.sum;
-                }
-                if (r1.speed != r2.speed) {
-                    return r1.speed - r2.speed;
-                }
-                if (r1.id12 != r2.id12) {
-                    return Long.compare(r1.id12, r2.id12);
-                }
-                return r1.id3 - r2.id3;
-            }) {
+            return new TreeSet<>() {
                 @Override
                 public boolean add(Route route) {
                     super.add(route);
@@ -255,7 +247,7 @@ public class Main {
             };
         }
 
-        public static record Route(Flight flight1, Flight flight2, Flight flight3, int sum, int speed, long id12, int id3) {
+        public static record Route(Flight flight1, Flight flight2, Flight flight3, int sum, int speed, long id12, int id3) implements Comparable<Route> {
             public static Route from(List<Flight> flights, int sum) {
                 if (flights.isEmpty() || flights.size() > 3) {
                     throw new IllegalArgumentException("Route can't be empty or have more than 3 flights.");
@@ -281,7 +273,43 @@ public class Main {
                     return new Flight[] {flight1, flight2, flight3};
                 }
             }
-        }
 
+            @Override
+            public int compareTo(Route another) {
+                if (this.sum != another.sum) {
+                    return this.sum - another.sum;
+                }
+                if (this.speed != another.speed) {
+                    return this.speed - another.speed;
+                }
+                if (this.id12 != another.id12) {
+                    return Long.compare(this.id12, another.id12);
+                }
+                return this.id3 - another.id3;
+            }
+
+            public int compareTo(List<Flight> flights, int sum) {
+                if (this.sum != sum) {
+                    return this.sum - sum;
+                }
+
+                var speed = flights.getLast().arr() - flights.getFirst().dep();
+                if (this.speed != speed) {
+                    return this.speed - speed;
+                }
+
+                long id1 = 0, id2 = 0; int id3 = 0;
+                try {
+                    id1 = flights.get(0).id;
+                    id2 = flights.get(1).id;
+                    id3 = flights.get(2).id;
+                } catch (IndexOutOfBoundsException e) { }
+                long id12 = (id1 << 32) | id2;
+                if (this.id12 != id12) {
+                    return Long.compare(this.id12, id12);
+                }
+                return this.id3 - id3;
+            }
+        }
     }
 }
